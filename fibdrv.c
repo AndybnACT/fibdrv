@@ -7,6 +7,7 @@
 #include <linux/module.h>
 #include <linux/mutex.h>
 #include <linux/uaccess.h>
+
 #include "bigint.h"
 
 MODULE_LICENSE("Dual MIT/GPL");
@@ -39,6 +40,32 @@ static uint128_t fib_sequence(long long k)
     }
 
     return f[k];
+}
+
+static uint128_t fibseq_doubling(long long k)
+{
+    uint128_t a = {.lower = 0, .upper = 0};
+    uint128_t b = {.lower = 1, .upper = 0};
+    int clz = __builtin_clzll(k);
+
+    for (int i = (64 - clz); i > 0; i--) {
+        uint128_t t1, t2, tmp;
+        lsft128(&tmp, b, 1);   // tmp = 2b
+        sub128(&tmp, tmp, a);  // tmp = tmp -a
+        mul128(&t1, a, tmp);   // t1 = a*tmp
+
+        mul128(&a, a, a);   // a = a^2
+        mul128(&b, b, b);   // b = b^2
+        add128(&t2, a, b);  // t2 = a^2 + b^2
+        a = t1;
+        b = t2;
+        if (k & (1ull << (i - 1))) {  // current bit == 1
+            add128(&t1, a, b);
+            a = b;
+            b = t1;
+        }
+    }
+    return a;
 }
 
 static int fib_open(struct inode *inode, struct file *file)
