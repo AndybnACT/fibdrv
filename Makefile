@@ -24,7 +24,7 @@ load:
 unload:
 	sudo rmmod $(TARGET_MODULE) || true >/dev/null
 
-client: client.c
+client: client.c record.c
 	$(CC) -o $@ $^
 
 PRINTF = env printf

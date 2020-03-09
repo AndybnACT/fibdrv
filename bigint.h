@@ -1,4 +1,4 @@
-typedef struct uint128 {
+typedef struct __attribute__((packed)) uint128 {
     unsigned long long upper;
     unsigned long long lower;
 } uint128_t;
@@ -52,20 +52,8 @@ static inline void rsft128(uint128_t *out, uint128_t op, unsigned char shift)
     out->lower |= op.upper << (64 - shift);
 }
 
-static inline void mul128(uint128_t *out, uint128_t op1, uint128_t op2)
+static inline void mul128(uint128_t *out, uint128_t lo, uint128_t hi)
 {
-    int op1cnt =
-        __builtin_popcountll(op1.lower) + __builtin_popcountll(op1.upper);
-    int op2cnt =
-        __builtin_popcountll(op2.lower) + __builtin_popcountll(op2.upper);
-    uint128_t lo, hi;
-    if (op1cnt > op2cnt) {
-        lo = op2;
-        hi = op1;
-    } else {
-        lo = op1;
-        hi = op2;
-    }
     out->lower = 0ull;
     out->upper = 0ull;
     while (lo.lower) {

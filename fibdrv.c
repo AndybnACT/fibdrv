@@ -1,3 +1,5 @@
+#include "fibdrv.h"
+
 #include <linux/cdev.h>
 #include <linux/device.h>
 #include <linux/fs.h>
@@ -6,6 +8,7 @@
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/mutex.h>
+#include <linux/timekeeping.h>
 #include <linux/uaccess.h>
 
 #include "bigint.h"
@@ -17,15 +20,11 @@ MODULE_VERSION("0.1");
 
 #define DEV_FIBONACCI_NAME "fibonacci"
 
-/* MAX_LENGTH is set to 92 because
- * ssize_t can't fit the number > 92
- */
-#define MAX_LENGTH 100
-
 static dev_t fib_dev = 0;
 static struct cdev *fib_cdev;
 static struct class *fib_class;
 static DEFINE_MUTEX(fib_mutex);
+uint128_t (*fib_func)(long long);
 
 static uint128_t fib_sequence(long long k)
 {
@@ -42,10 +41,32 @@ static uint128_t fib_sequence(long long k)
     return f[k];
 }
 
+static uint128_t fib_sequence_ll(long long k)
+{
+    /* FIXME: use clz/ctz and fast algorithms to speed up */
+    u64 f[k + 2];
+    uint128_t ret;
+    ret.upper = 0;
+
+    f[0] = 0;
+    f[1] = 1;
+
+    for (int i = 2; i <= k; i++) {
+        f[i] = f[i - 1] + f[i - 2];
+    }
+    ret.lower = f[k];
+
+    return ret;
+}
+
 static uint128_t fibseq_doubling(long long k)
 {
     uint128_t a = {.lower = 0, .upper = 0};
     uint128_t b = {.lower = 1, .upper = 0};
+    if (k <= 1) {
+        return k == 0 ? a : b;
+    }
+
     int clz = __builtin_clzll(k);
 
     for (int i = (64 - clz); i > 0; i--) {
@@ -68,8 +89,38 @@ static uint128_t fibseq_doubling(long long k)
     return a;
 }
 
+static uint128_t fibseq_doubling_ll(long long k)
+{
+    u64 a = 0;
+    u64 b = 1;
+    uint128_t ret = {0, 0};
+    if (k <= 1) {
+        return k == 0 ? (uint128_t){.lower = 0, .upper = 0}
+                      : (uint128_t){.lower = 1, .upper = 0};
+    }
+
+    int clz = __builtin_clzll(k);
+
+    for (int i = (64 - clz); i > 0; i--) {
+        u64 t1, t2;
+        t1 = a * ((b << 1) - a);
+        t2 = a * a + b * b;
+
+        a = t1;
+        b = t2;
+        if (k & (1ull << (i - 1))) {  // current bit == 1
+            t1 = a + b;
+            a = b;
+            b = t1;
+        }
+    }
+    ret.lower = a;
+    return ret;
+}
+
 static int fib_open(struct inode *inode, struct file *file)
 {
+    printk("#########xxxxxx##########\n");
     if (!mutex_trylock(&fib_mutex)) {
         printk(KERN_ALERT "fibdrv is in use");
         return -EBUSY;
@@ -89,8 +140,12 @@ static ssize_t fib_read(struct file *file,
                         size_t size,
                         loff_t *offset)
 {
-    uint128_t result = fib_sequence(*offset);
-    return sizeof(uint128_t) - copy_to_user(buf, &result, sizeof(uint128_t));
+    u64 t1, t2;
+    t1 = ktime_get_ns();
+    uint128_t result = fib_func(*offset);
+    t2 = ktime_get_ns();
+    copy_to_user(buf, &result, sizeof(uint128_t));
+    return t2 - t1;
 }
 
 /* write operation is skipped */
@@ -99,6 +154,29 @@ static ssize_t fib_write(struct file *file,
                          size_t size,
                          loff_t *offset)
 {
+    char kbuf[10];
+    copy_from_user(kbuf, buf, 10);
+    switch (kbuf[0]) {
+    case FIB_REG_128:
+        printk("changing fib_func to regular one (128)\n");
+        fib_func = fib_sequence;
+        break;
+    case FIB_DOUB_128:
+        printk("changing fib_func to doubling one (128)\n");
+        fib_func = fibseq_doubling;
+        break;
+    case FIB_DOUB_LL:
+        printk("changing fib_func to doubling one (64)\n");
+        fib_func = fibseq_doubling_ll;
+        break;
+    case FIB_REG_LL:
+        printk("changing fib_func to regular one (64)\n");
+        fib_func = fib_sequence_ll;
+        break;
+    default:
+        printk("Invalid argument\n");
+        return -EINVAL;
+    }
     return 1;
 }
 
@@ -139,6 +217,8 @@ static int __init init_fib_dev(void)
     int rc = 0;
 
     mutex_init(&fib_mutex);
+
+    fib_func = fib_sequence;
 
     // Let's register the device
     // This will dynamically allocate the major number
