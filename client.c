@@ -56,7 +56,7 @@ int main()
         printf("Reading from " FIB_DEV
                " at offset %d, returned the sequence "
                "0x%llx%016llx.\n",
-               i, fib[0], fib[1]);
+               i, fib[1], fib[0]);
     }
 
     for (int i = offset; i >= 0; i--) {
@@ -65,7 +65,7 @@ int main()
         printf("Reading from " FIB_DEV
                " at offset %d, returned the sequence "
                "0x%llx%016llx.\n",
-               i, fib[0], fib[1]);
+               i, fib[1], fib[0]);
     }
 
     char buf[10];

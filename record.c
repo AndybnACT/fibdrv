@@ -20,7 +20,7 @@ void record(long long k, unsigned long long t)
     if (k >= MAX_LENGTH)
         return;
 
-    if (t >= 1000) {
+    if (t >= 1200) {
         printf("k=%lld t=%llu, drop\n", k, t);
         return;
     }
