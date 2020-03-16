@@ -1,3 +1,7 @@
+#ifndef unlikely
+#define unlikely(x) __builtin_expect((x), 0)
+#endif
+
 typedef struct __attribute__((packed)) uint128 {
     unsigned long long lower;
     unsigned long long upper;
@@ -40,10 +44,11 @@ static inline void sub128(uint128_t *out, uint128_t op1, uint128_t op2)
 
 static inline void lsft128(uint128_t *out, uint128_t op, unsigned char shift)
 {
-    if (shift == 0) {
+    if (unlikely(shift == 0)) {
         *out = op;
         return;
-    } else if (shift >= 64) {
+    }
+    if (shift >= 64) {
         out->upper = op.lower << (shift - 64);
         out->lower = 0ull;
         return;
@@ -55,10 +60,11 @@ static inline void lsft128(uint128_t *out, uint128_t op, unsigned char shift)
 
 static inline void rsft128(uint128_t *out, uint128_t op, unsigned char shift)
 {
-    if (shift == 0) {
+    if (unlikely(shift == 0)) {
         *out = op;
         return;
-    } else if (shift >= 64) {
+    }
+    if (shift >= 64) {
         out->upper = 0ull;
         out->lower = op.upper >> (shift - 64);
         return;
@@ -70,7 +76,7 @@ static inline void rsft128(uint128_t *out, uint128_t op, unsigned char shift)
 }
 
 
-// static inline void mul128_school(uint128_t *out, uint128_t lo, uint128_t hi)
+// static inline void mul128_naive(uint128_t *out, uint128_t lo, uint128_t hi)
 // {
 //     unsigned int *src1 = (unsigned int *) &lo;
 //     unsigned int *src2 = (unsigned int *) &hi;
