@@ -4,7 +4,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#define FIB_TEST 30000
+#define FIB_TEST 500
 
 bn bn_fib_doubling(uint64_t k)
 {
@@ -88,7 +88,7 @@ int main(int argc, char const *argv[])
     bn aa, bb, cc;
     bn fibnum;
     uint64_t a, b;
-    struct prod c = {0, 0};
+    struct prod c;
 
     a = 0xDEADBEAF;
     b = 0xFFFFFFFFFFFFFFFFull;
@@ -142,7 +142,7 @@ int main(int argc, char const *argv[])
         bn_add(&z, &x, &y);
         bn_assign(&x, &y);
         bn_assign(&y, &z);
-        printf("=========> Fib[%ld] = ", i + 2);
+        printf("=========> Fib[%zu] = ", i + 2);
         bn_print(&z);
     }
     fibnum = bn_fib_doubling(FIB_TEST);

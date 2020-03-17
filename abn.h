@@ -197,17 +197,20 @@ static inline void __bn_shld(bn *dst, uint8_t amount)
     }
 
     num = bn_getnum(dst);
+    uint64_t tmp = 0;
     for (int i = 0; i <= dst->cnt; i++) {
-        uint64_t tmp;
         uint64_t tmp2;
+        uint64_t res = 0;
         // dprintf(10, "%llx %llx\n", tmp, num[i]);
         __asm__(
-            "movq (%2), %0\n\t"
-            "shldq %%cl, %1, (%2)"
-            : "=&r"(tmp2)
+            "movq (%3), %0\n\t"
+            "movq  %0, %1\n\t"
+            "shldq %%cl, %2, %1"
+            : "=&r"(tmp2), "=&r"(res)
             : "r"(tmp), "r"(num + i), "c"(amount)
             :);
         tmp = tmp2;
+        num[i] = res;
         // dprintf(10, "%llx %llx\n", tmp, num[i]);
     }
     if (num[dst->cnt])
@@ -222,16 +225,19 @@ static inline void __bn_shrd(bn *dst, uint8_t amount)
     }
 
     num = bn_getnum(dst);
+    uint64_t tmp = 0;
     for (int i = dst->cnt - 1; i >= 0; i--) {
-        uint64_t tmp;
         uint64_t tmp2;
+        uint64_t res = 0;
         __asm__(
-            "movq (%2), %0\n\t"
-            "shrdq %%cl, %1, (%2)"
-            : "=&r"(tmp2)
+            "movq (%3), %0\n\t"
+            "movq  %0, %1\n\t"
+            "shrdq %%cl, %2, %1"
+            : "=&r"(tmp2), "=&r"(res)
             : "r"(tmp), "r"(num + i), "c"(amount)
             :);
         tmp = tmp2;
+        num[i] = res;
     }
     if (!num[dst->cnt - 1])
         dst->cnt--;
@@ -262,11 +268,11 @@ static inline void bn_shl(bn *dst, uint32_t left)
     }
 }
 
-static inline void bn_shr(bn *dst, uint32_t right)
-{
-    dprintf(0, "ERROR, NOT IMPLEMENTMENT\n");
-    return;
-}
+// static inline void bn_shr(bn *dst, uint32_t right)
+// {
+//     dprintf(0, "ERROR, NOT IMPLEMENTMENT\n");
+//     return;
+// }
 
 static inline uint8_t __sub_ll(uint64_t *dst,
                                uint64_t src1,
