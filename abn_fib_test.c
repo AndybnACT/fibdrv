@@ -63,5 +63,6 @@ int main(int argc, char const *argv[])
     bn f30000;
     f30000 = bn_fib_doubling(30000);
     bn_print(&f30000);
+    bn_free(&f30000);
     return 0;
 }

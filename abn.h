@@ -275,9 +275,9 @@ static inline uint8_t __sub_ll(uint64_t *dst,
 {
     uint8_t rc;
     uint64_t res;
-    // do src1 - src2 - carry
+    // do src1 - carry - src2
     __asm__(
-        "addq %4, %3\n\t"
+        "subq %4, %2\n\t"
         "setc %0\n\t"
         "subq %3, %2\n\t"
         "setc %%sil\n\t"
