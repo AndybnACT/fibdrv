@@ -1,8 +1,33 @@
+#ifndef __ABN_H
+#define __ABN_H
+
+#define KERNEL_MODE
+
+#ifndef KERNEL_MODE
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 
 #include "debug.h"
+#endif /* !KERNEL_MODE */
+
+#ifdef KERNEL_MODE
+#include <linux/slab.h>
+#include <linux/types.h>
+
+#define malloc(size) kmalloc((size), GFP_KERNEL)
+#define free(ptr) kfree(ptr)
+#define CONFIG_DEBUG_LEVEL 10
+#define dprintf(lvl, fmt, args...)                             \
+    do {                                                       \
+        if (CONFIG_DEBUG_LEVEL && (lvl) <= CONFIG_DEBUG_LEVEL) \
+            printk((fmt), ##args);                             \
+    } while (0)
+#define printf(fmt, args...) \
+    {                        \
+        printk(fmt, ##args); \
+    }
+#endif /* KERNEL_MODE */
 
 #define STACKALLOC 5
 typedef struct bn {
@@ -419,3 +444,11 @@ static inline void bn_print(bn *b)
     }
     printf("\n");
 }
+
+#ifdef KERNEL_MODE
+#undef malloc
+#undef free
+#undef printf
+#endif /* KERNEL_MODE */
+
+#endif /* __ABN_H */
