@@ -405,6 +405,80 @@ static inline void bn_mul_comba(bn *dst, bn *src1, bn *src2)
     dst->cnt = d[index] ? index + 1 : dst->cnt;
 }
 
+
+#define DIV2_ROUNDUP(x) (((x - 1) / 2) + 1)
+static inline void bn_sqr_comba(bn *dst, bn *src)
+{
+    uint64_t *d, *mpcand, *mplier;
+    struct prod prod;
+    int *wcand_p, *wlier_p, w;
+    int i, j;
+    int index = 0;
+    int width = src->cnt << 1;
+    uint8_t carry;
+    dprintf(0, "comba square!!\n");
+    if (dst->cap < width) {
+        dst = bn_realloc(dst, width + 2);
+        if (!dst) {
+            dprintf(1, "realloc fails on bn_mul_comba\n");
+            return;
+        }
+    }
+    d = bn_getnum(dst);
+    memset(d, 0, width * sizeof(uint64_t));
+    dst->cnt = 0;
+    mplier = bn_getnum(src);
+    wlier_p = &src->cnt;
+
+    while (index < width - 1) {
+        if (index < *wlier_p) {
+            i = index;
+            j = 0;
+        } else {
+            i = *wlier_p - 1;
+            j = index - i;
+        }
+
+        int innerl = DIV2_ROUNDUP(i - j);
+        while (innerl-- && i != j) {
+            dprintf(10, "Doing 2 x A[%d] x A[%d], @ %d\n", j, i, innerl);
+            if (mplier[j] == 0 || mplier[i] == 0) {  // unlikely
+                dprintf(10, "zero element --> skipping\n");
+                goto skip;
+            }
+            carry = 0;
+            prod = __mul_ll(mplier[j], mplier[i]);
+            __asm__(
+                "shld $1, %0, %1\n\t"
+                "setc %2\n\t"
+                "shl  $1, %0\n\t"
+                : "+&r"(prod.lo), "+r"(prod.hi), "=&r"(carry)
+                :
+                :);
+            d[index + 2] += carry;
+            carry = __add_ll(d + index, d[index], prod.lo, 0);
+            carry = __add_ll(d + index + 1, d[index + 1], prod.hi, carry);
+            dprintf(1, "----------%d \n", carry);
+            d[index + 2] += carry;
+        skip:
+            i--;
+            j++;
+        }
+        if (i == j) {
+            dprintf(10, "Doing A[%d]^2\n", j);
+            prod = __mul_ll(mplier[i], mplier[i]);
+            carry = __add_ll(d + index, d[index], prod.lo, 0);
+            carry = __add_ll(d + index + 1, d[index + 1], prod.hi, carry);
+            d[index + 2] += carry;
+        }
+        dprintf(10, "\n");
+        if (d[index])
+            dst->cnt = index + 1;
+        index++;
+    }
+    dst->cnt = d[index] ? index + 1 : dst->cnt;
+}
+
 static inline void bn_print(bn *b)
 {
     uint64_t *num = bn_getnum(b);
